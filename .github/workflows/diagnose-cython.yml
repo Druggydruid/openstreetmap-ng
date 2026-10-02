@@ -1,0 +1,36 @@
+name: Diagnose Cython shutdown
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diagnose-cython.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: openstreetmap-ng/openstreetmap-ng
+          ref: 1bc015d178b2976737a159084aac484426466279
+      - uses: ./.github/actions/setup
+      - name: Install debugger
+        run: echo "GDB_BIN=$(nix-build '<nixpkgs>' -A gdb --no-out-link)/bin/gdb" >> "$GITHUB_ENV"
+      - name: Build Cython modules
+        run: nix-shell --pure --run 'cython-build-fast'
+      - name: Start services
+        run: nix-shell --pure --run 'dev-start'
+      - name: Run tests with native crash backtrace
+        run: |
+          cat > /tmp/diagnose-cython.sh <<'SH'
+          set -eu
+          real_python=$(python -c 'import os; print(os.readlink("/proc/self/exe"))')
+          export PYTHONPATH="$VIRTUAL_ENV/lib/python3.14/site-packages:$PWD"
+          exec "$1" --batch --return-child-result -ex 'set pagination off' -ex run -ex 'thread apply all bt' --args "$real_python" -m coverage run -m pytest --extended --no-header
+          SH
+          nix-shell --pure --run "bash /tmp/diagnose-cython.sh '$GDB_BIN'"
