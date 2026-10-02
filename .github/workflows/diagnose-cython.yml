@@ -21,6 +21,9 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Install debugger
         run: echo "GDB_BIN=$(nix-build '<nixpkgs>' -A gdb --no-out-link)/bin/gdb" >> "$GITHUB_ENV"
+      - name: Rebuild native extension for this runner CPU
+        run: |
+          if [ -d speedup/target ]; then mv speedup/target /tmp/speedup-restored-target; fi
       - name: Build Cython modules
         run: nix-shell --pure --run 'cython-build-fast'
       - name: Start services
