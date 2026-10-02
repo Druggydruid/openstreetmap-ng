@@ -30,7 +30,8 @@ jobs:
           cat > /tmp/diagnose-cython.sh <<'SH'
           set -eu
           real_python=$(python -c 'import os; print(os.readlink("/proc/self/exe"))')
-          export PYTHONPATH="$VIRTUAL_ENV/lib/python3.14/site-packages:$PWD"
-          exec "$1" --batch --return-child-result -ex 'set pagination off' -ex run -ex 'thread apply all bt' --args "$real_python" -m coverage run -m pytest --extended --no-header
+          export LD_LIBRARY_PATH=$(python -c 'import os; print(os.environ.get("LD_LIBRARY_PATH", ""))')
+          ln -sf "$real_python" "$VIRTUAL_ENV/bin/python-gdb"
+          exec "$1" --batch --return-child-result -ex 'set pagination off' -ex run -ex 'thread apply all bt' --args "$VIRTUAL_ENV/bin/python-gdb" -m coverage run -m pytest --extended --no-header
           SH
           nix-shell --pure --run "bash /tmp/diagnose-cython.sh '$GDB_BIN'"
